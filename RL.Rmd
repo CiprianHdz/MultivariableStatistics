@@ -1,0 +1,299 @@
+---
+title: "Linear Regression"
+output:
+  html_notebook: default
+  pdf_document: default
+---
+
+
+Suppose we are given a variable of primary interest y and we aim to model the relationship between this response $y$ variable a set of regressors or explanatory variables $x_1,\dots, x_k.$ This relationship is not exact, as it is affected by random noise $\epsilon_i$
+
+$$ y= f(x_1, \dots, x_k)+ \epsilon  $$
+
+Out goal is to estimate the unknown function $f$, to separate the systematic componente $f$ from the random noise $\epsilon.$ In matrix notation, 
+
+$$ y= X\beta + \epsilon$$
+
+where $X$ is the design matrix. *Assume X is  of full rank*.  i.e. the columns are linearly independent. Independence of the columns is necessary in order to obtain unique estimators of the regreesion coefficients. Assumptions of the error vector are made: 
+
+* The errors have mean zero $E[\epsilon]=0$.
+* Variance and correlation structure of the errors.
+  $var(\epsilon_i)=\sigma^2$ we assume constant error variance acrooss observations, that is homoscedastic errors. In addition, we assume that errors are uncorrelated, $Cov(\epsilon_i, \epsilon_j)=0$ for $i \neq j,$ The assumption of homoscedastic and uncorrelated errors leads to the covariance matrix $Cov(e)=\sigma^2 I$
+* To construct confidence intervals and hyphitesis tests for the regression coefficients, we oftern assume a normal distribution for the errors.  $\epsilon \sim N(0, I \sigma^2),$ impliying that $\epsilon_i$
+ and $x_i$ are independent.
+
+
+
+```{r}
+#Data: Munich 
+file_url <- "http://www.bamlss.org/misc/rent99.raw"
+rent99 <- read.table(file_url, header = TRUE)
+head(rent99)
+```
+The scatter plot displays an approximate linear relationship between rent and area.
+
+```{r}
+plot(rent99$area,rent99$rent)
+```
+
+An additional regression line is additionally included: 
+
+$$ \text{rent}_i =\beta_0 + \beta_1 \text{area}_i + \epsilon_i $$
+
+```{r}
+plot(rent99$area,rent99$rent)
+abline(lm(rent99$rent ~ rent99$area, data = rent99), col = "blue")
+```
+
+$$ E\Big[\text{rent}|\text{area}\Big]=\beta_0+\beta_1 \text{area} $$
+
+This means that the expected net rent is a linear function of the living area.
+
+
+```{r}
+plot(rent99$area,rent99$rentsqm)
+abline(lm(rent99$rentsqm ~ rent99$area, data = rent99), col = "blue")
+abline(lm(rent99$rentsqm ~ 1/rent99$area, data = rent99), col = "red")
+```
+The data gives rise to doubts about the assumption of equal variances across observations $$var(y_i)=var(\epsilon_i)=\sigma^2,$$ since variability in rent seems to increase as living area increases.
+
+The slope parameter can be interpreted as follows: If the living area increases by $1m^2$, the rent increases about 5.57 euro on average.
+
+The relationship between rent per square meter and living area is nonlinear. The fit to the data is poor for small and large living area. If we define the new explanatory variable 
+
+$$x= \frac{1}{\text{area}}$$
+
+It reveals that on average the net rent per square meter declines nonlinearly as living area increases. The regressor x and  the response y can be transformed to achive linearity in the parameters. 
+
+
+### Multiple Linear Regression 
+
+
+We now define the model 
+
+$$ \text{rent}_i= \beta_0 + \beta_1 \text{area}_i + \beta_2 \text{glocation}_i + \epsilon_i $$
+
+The covariates can be continous, binary, or multi-categorical
+
+
+#Homoscedastic Error Variances
+
+Simulamos los datos
+
+
+```{r}
+#Nonlinear regression.
+x=1:100
+y=-1.0+2.0*x+rnorm(100,,1) 
+
+#Graficamos
+plot(x,y) 
+```
+
+
+```{r}
+#Nonlinear regression.
+x=1:100
+y=rnorm(100,-1.0+2.0*x,(0.1+0.3*(x+3))**2) 
+
+#Graficamos
+plot(x,y) 
+```
+HOMO-HETEROSCEDASTIC VARIANCES.
+
+
+
+```{r}
+#Nonlinear regression.
+x1<-1:50
+y<-0.1*x1+0.01*x1*x1+rnorm(50,0,3) 
+
+#Graficamos
+plot(x1,y) 
+abline(lm(y~x1), col = "blue")
+```
+
+
+
+Analizamos ahora las gráficas de diagnóstico. 
+
+
+```{r}
+r=lm(y~ x1)
+plot(r)
+summary(r)
+```
+
+Predecimos ahora
+
+```{r}
+x1<-1:50
+y<-0.1*x1+rnorm(50) 
+r<-lm(y~ x1)
+d<-data.frame(cbind(1.5))
+names(d)=c("x1")
+predict(r,d)
+```
+```{r}
+pc<-predict(r,d,interval="confidence") #intervalos de confianza para promedio condicional EY|X=x
+pd<-predict(r,d,interval="prediction") #intervalos de confianza para valor de Y dado X=x
+pd
+pc
+```
+Visualización con banda de confianza
+```{r}
+library(ggplot2)
+ggplot(data.frame(y=y,x1=x1), aes(x1,y)) + geom_point()+ stat_smooth(method = "lm", col = "red")
+```
+Distribución de los estimadores
+
+```{r}
+estimaciones1<-rep(1000,0)
+estimaciones2<-rep(1000,0)
+
+for (i in 1:1000)
+ {y<-0.1*x1 +rnorm(50)
+ r<-lm(y~x1)
+ estimaciones1[i] <- r$coefficients[1] # con names(r)puedes ver todos los campos del objeto
+ estimaciones2[i] <- r$coefficients[2]
+}
+head(estimaciones1)
+
+
+plot(x1,y,col="white")
+abline(a=estimaciones1[1],b=estimaciones2[1])
+for (i in 2:25)
+abline(a=estimaciones1[i],b=estimaciones2[i])
+#graficamos todos los modelos encontrados; observa que el incertidumbre aumenta en los extremos
+
+```
+```{r}
+plot(density(estimaciones1)); rug(estimaciones1)
+plot(density(estimaciones2)); rug(estimaciones2)
+#para concoer la distribución de las estimaciones. 
+"en teoría ¿cuál debe ser la distribución? (asimtotica) "
+```
+
+# Regresión multivariada
+
+```{r}
+library(ggplot2)
+install.packages("GGally")
+library(GGally)
+```
+
+
+
+```{r}
+x1<-1:50
+x2<-runif(50,-1,1)
+y<-0.1*x1  +rnorm(50)
+ggpairs(data.frame(y,x1,x2))
+summary(data.frame(y,x1,x2))
+```
+
+
+```{r}
+r<-lm(y~x1+x2)
+r<-lm(y~x1+x2,data=data.frame(y=runif(50),x1=runif(50),x2=runif(50)))
+# o más compacto ("." refiere a todas las variables del dataframe menos el que está antes del "~")
+r<-lm(y~ . ,data=data.frame(y=runif(50),x1=runif(50),x2=runif(50)))
+```
+
+```{r}
+x1<-1:50
+x2<-runif(50,-1,1)
+y<-0.1*x1  +rnorm(50)
+
+r<-lm(y~x1+x2)
+
+plot(r)
+summary(r)
+
+r<-lm(y~x1 -1)
+plot(r)
+summary(r)
+
+
+x<-1:100
+y<-0.5 + 2*x +rnorm(100,0,50)
+x2<-x^2
+x3<-x^3
+x4<-x^4
+x5<-x^5
+
+reg<-lm(y ~ x+x2+x3+x4+x5)
+summary(reg)
+
+
+
+reg<-lm(y ~ x)
+summary(reg)
+
+
+datos1<-rnorm(100,0,2)
+qqnorm(datos1) # qqplot para verificar normalidad 
+#verifica  el efecto de cambiar el promedio y la varianza (cuida con la escala que cambia; se puede fijar usando xlim(); por ejemplo: 
+
+
+qqnorm(datos1,xlim=c(-2,2),ylim=c(-2,2) )  
+
+datos1<-rnorm(100,1,1)
+qqnorm(datos1,xlim=c(-2,2),ylim=c(-2,2) )  
+
+datos1<-rnorm(100,0,1)
+datos2<-rnorm(100,0,1)
+qqplot(datos1,datos2)
+
+datos1<-rnorm(100,0,1)
+datos2<-rt(100,1)
+qqplot(datos1,datos2)
+# se sugiere correrlo varias veces para ver la aleatoridad en la gráfica
+
+```
+
+
+#Confidence Intervals
+
+```{r}
+library(ggplot2)
+data("cars")
+
+head(cars)
+```
+The gray bands around the line represent the standard error of the regression line
+
+```{r}
+ggplot(cars, aes(x=speed, y=dist)) + 
+  geom_point(color='#2980B9', size = 4) + 
+  geom_smooth(method=lm, color='#2C3E50')
+```
+```{r}
+cars.lm <- lm(dist ~ speed, data = cars)
+summary(cars.lm)
+```
+As before, the speed of the car has a relatively high and significant relationship with stopping distance. Knowing this relationship, one can then form and answer questions such as those above. A confidence interval is created to respond to the first question, “What is the mean stopping distance of the cars given a particular speed?”.
+
+
+```{r}
+new.dat <- data.frame(speed=30)
+predict(cars.lm, newdata = new.dat, interval = 'confidence')
+```
+The confidence interval of (87.44, 113.35) signifies the range in which the true population parameter lies at a 95% level of confidence.
+
+```{r}
+predict(cars.lm, newdata = new.dat, interval = 'prediction')
+```
+Notice the fitted value is the same as before, but the interval is wider. This is due to the additional term in the standard error of prediction. It should be noted prediction and confidence intervals are similar in that they are both predicting a response, however, they differ in what is being represented and interpreted.
+
+```{r}
+confint(cars.lm)
+```
+
+https://rpubs.com/aaronsc32/regression-confidence-prediction-intervals
+
+https://www.stat.cmu.edu/~larry/=stat401/lecture-09.pdf
+
+https://academic.macewan.ca/burok/Stat378/notes/multiple_confidence.pdf
+
+http://www2.stat.duke.edu/~tjl13/s101/slides/unit6lec3H.pdf
